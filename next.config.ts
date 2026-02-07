@@ -1,7 +1,12 @@
-import type {NextConfig} from 'next';
+import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
   /* config options here */
+  experimental: {
+    serverActions: {
+      allowedOrigins: ['192.168.56.1:9002', 'localhost:9002'],
+    },
+  },
   typescript: {
     ignoreBuildErrors: true,
   },

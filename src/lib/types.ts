@@ -14,9 +14,11 @@ export type Incident = {
   timestamp: string;
   confidence: number;
   posts: string[];
+  relatedPostUris?: string[]; // To track unique bluesky post URIs for deduplication
   status: 'new' | 'acknowledged' | 'in-progress' | 'resolved' | 'false-positive';
   summary: string;
   validationMetrics: ValidationMetrics;
+  url?: string; // Link to the source post
 };
 
 
