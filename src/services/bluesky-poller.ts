@@ -108,15 +108,30 @@ export function startBlueskyPoller() {
                 const rkey = post.uri.split('/').pop();
                 const postUrl = `https://bsky.app/profile/${post.author.handle}/post/${rkey}`;
 
-                await processIncidentReport({
-                    text: post.record.text,
-                    sourceType: 'bluesky',
-                    authorId: post.author.handle,
-                    authorType: post.author.handle.includes('verified') || post.author.displayName?.includes('Safety') ? 'verified' : 'unverified',
-                    postUri: post.uri, // Pass URI for deduplication
-                    postUrl: postUrl // Pass URL for display
-                    // evidence: { image: get first image if any }
-                });
+                try {
+                    const result = await processIncidentReport({
+                        text: post.record.text,
+                        sourceType: 'bluesky',
+                        authorId: post.author.handle,
+                        authorType: post.author.handle.includes('verified') || post.author.displayName?.includes('Safety') ? 'verified' : 'unverified',
+                        postUri: post.uri, // Pass URI for deduplication
+                        postUrl: postUrl // Pass URL for display
+                        // evidence: { image: get first image if any }
+                    });
+
+                    // User requested fixed 5s delay between posts
+                    if (result.status !== 'duplicate') {
+                        const delayMs = 5000;
+
+                        console.log(`[BlueskyPoller] Processed ${result.status} incident. Waiting ${delayMs / 1000}s before continuing...`);
+                        await new Promise(resolve => setTimeout(resolve, delayMs));
+                    }
+                } catch (error) {
+                    console.error(`[BlueskyPoller] CRITICAL: Failed to process post ${postUrl}:`, error instanceof Error ? error.message : error);
+                    console.log('[BlueskyPoller] Continuing to next post despite error in 5s...');
+                    // Still wait a bit so we don't spam errors
+                    await new Promise(resolve => setTimeout(resolve, 5000));
+                }
             }
 
             // Move to next batch

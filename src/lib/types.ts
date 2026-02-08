@@ -5,6 +5,11 @@ export type ValidationMetrics = {
   relevantMediaCount: number; // Only increments if AI confidence > 0.7
 };
 
+export type PostSource = {
+  text: string;
+  url?: string;
+};
+
 export type Incident = {
   id: string;
   type: 'Fire' | 'Accident' | 'Congestion' | 'Public Unrest';
@@ -13,7 +18,7 @@ export type Incident = {
   coordinates: { lat: number; lng: number };
   timestamp: string;
   confidence: number;
-  posts: string[];
+  posts: PostSource[];
   relatedPostUris?: string[]; // To track unique bluesky post URIs for deduplication
   status: 'new' | 'acknowledged' | 'in-progress' | 'resolved' | 'false-positive';
   summary: string;

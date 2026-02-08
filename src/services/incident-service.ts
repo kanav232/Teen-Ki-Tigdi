@@ -4,9 +4,9 @@ import { db } from '../../firebase-admin';
 import { Incident, ValidationMetrics } from '../lib/types';
 import { calculateConfidence } from '../lib/calculate-confidence';
 import { getCoordinates } from '../ai/flows/extract-location-from-text';
-import { classifyEmergencyIntent } from '../ai/flows/classify-emergency-intent';
-import { validateVisualEvidence } from '../ai/flows/validate-visual-evidence';
+import { checkSimilarity } from '../ai/flows/check-similarity';
 import { generateEmergencyTicketSummary } from '../ai/flows/generate-emergency-ticket-summary';
+import { calculateDistance } from '../lib/geo-utils';
 
 
 export type IncidentInput = {
@@ -15,7 +15,7 @@ export type IncidentInput = {
     authorId?: string;
     authorType?: 'verified' | 'unverified'; // relevant for confidence
     evidence?: {
-        image?: string; // base64 or url
+        image?: string; // Still accepted but not processed via AI for now
         video?: string;
     };
     locationOverride?: string; // if we already know the location
@@ -26,6 +26,20 @@ export type IncidentInput = {
 
 export async function processIncidentReport(input: IncidentInput) {
     console.log(`[IncidentService] Processing report: "${input.text.substring(0, 30)}..."`);
+
+    // 0. Early Deduplication Check (SAVE LLM QUOTA)
+    if (input.postUri) {
+        // Check if ANY incident already has this URI in its relatedPostUris array
+        const duplicateSnapshot = await db.collection('incidents')
+            .where('relatedPostUris', 'array-contains', input.postUri)
+            .get();
+
+        if (!duplicateSnapshot.empty) {
+            console.log(`[IncidentService] Duplicate post detected (${input.postUri}). Skipping AI processing.`);
+            return { status: 'duplicate', id: duplicateSnapshot.docs[0].id };
+        }
+    }
+
 
     // 1. Classify Intent
     // OPTIMIZATION: User requested to trust keywords and skip generic AI classification.
@@ -43,64 +57,88 @@ export async function processIncidentReport(input: IncidentInput) {
 
     // 2. Extract Location
     let locationName = input.locationOverride;
-    // We will ensure valid coordinates in the creation block if needed
+    let extractedLocResult: any = null;
 
     if (!locationName) {
-        const locResult = await getCoordinates(input.text);
-        locationName = locResult.location;
-    }
-
-    if (!locationName || locationName === 'Unknown Location') {
-        console.log('[IncidentService] Could not extract location name. Skipping search, will try deep extraction on creation.');
-        // Don't return yet, give it a chance in the "else" block or fail there
-    }
-
-    // 3. Validate Evidence (if any)
-    let evidenceValidation = null;
-    if (input.evidence?.image) {
-        evidenceValidation = await validateVisualEvidence({
-            photoDataUri: input.evidence.image,
-            description: input.text
-        });
-    }
-
-    // 4.1 Deduplication Check
-    if (input.postUri) {
-        // Check if ANY incident already has this URI in its relatedPostUris array
-        const duplicateSnapshot = await db.collection('incidents')
-            .where('relatedPostUris', 'array-contains', input.postUri)
+        // OPTIMIZATION: Check if text contains any "Known" active location names to skip LLM
+        const activeIncidentsSnapshot = await db.collection('incidents')
+            .where('status', 'in', ['new', 'acknowledged', 'in-progress'])
             .get();
 
-        if (!duplicateSnapshot.empty) {
-            console.log(`[IncidentService] Duplicate post detected (${input.postUri}). Skipping.`);
-            return { status: 'duplicate', id: duplicateSnapshot.docs[0].id };
+        for (const doc of activeIncidentsSnapshot.docs) {
+            const data = doc.data() as Incident;
+            if (data.location && input.text.toLowerCase().includes(data.location.toLowerCase())) {
+                console.log(`[IncidentService] Fast-match found for known location: "${data.location}". Skipping AI extraction.`);
+                locationName = data.location;
+                // Prepare a result object mimicking getCoordinates output
+                extractedLocResult = {
+                    location: data.location,
+                    coordinates: data.coordinates
+                };
+                break;
+            }
+        }
+
+        // If no fast-match, fall back to LLM
+        if (!locationName) {
+            extractedLocResult = await getCoordinates(input.text);
+            locationName = extractedLocResult.location;
         }
     }
 
+    if (!locationName || locationName === 'Unknown Location') {
+        console.log('[IncidentService] Could not extract location name. Will try one more time if creating new.');
+    }
 
-    // 4.2 Aggregation Check (Existing Incident)
+    // 3. Evidence Validation (Skipped per user request)
+    let evidenceValidation = null;
+
+
+
+    // 4.2 Aggregation Check (Geospatial + Semantic)
     let type: Incident['type'] = 'Public Unrest';
-    const severity: Incident['severity'] = (classification.severity as Incident['severity']) || 'minor';
+    const severity: Incident['severity'] = (classification.severity as Incident['severity']) || 'moderate';
 
     const lower = input.text.toLowerCase();
     if (lower.includes('fire')) type = 'Fire';
     else if (lower.includes('accident') || lower.includes('crash')) type = 'Accident';
     else if (lower.includes('traffic')) type = 'Congestion';
 
+    // Fetch active incidents to check proximity
     const snapshot = await db.collection('incidents')
         .where('status', 'in', ['new', 'acknowledged', 'in-progress'])
-        .where('type', '==', type)
         .get();
 
     let existingDoc: any = null;
     let existingData: Incident | null = null;
 
-    // Manual fuzzy filter for MVP
-    for (const doc of snapshot.docs) {
-        const data = doc.data() as Incident;
-        if (data.location === locationName) {
-            existingDoc = doc;
-            existingData = data;
+    if (extractedLocResult?.coordinates) {
+        for (const doc of snapshot.docs) {
+            const data = doc.data() as Incident;
+
+            // Check distance (200m range)
+            const distance = calculateDistance(
+                extractedLocResult.coordinates.lat,
+                extractedLocResult.coordinates.lng,
+                data.coordinates.lat,
+                data.coordinates.lng
+            );
+
+            if (distance <= 200) {
+                console.log(`[IncidentService] Proximity match! (${Math.round(distance)}m). Checking AI similarity...`);
+
+                // Call AI to see if they are the SAME specific event
+                const isSimilar = await checkSimilarity(input.text, data.summary);
+
+                if (isSimilar) {
+                    console.log(`[IncidentService] Semantic match confirmed. Merging into incident ${doc.id}.`);
+                    existingDoc = doc;
+                    existingData = data;
+                    break;
+                } else {
+                    console.log(`[IncidentService] Semantic check failed. Reports are different despite proximity.`);
+                }
+            }
         }
     }
 
@@ -113,7 +151,7 @@ export async function processIncidentReport(input: IncidentInput) {
         const newMetrics: ValidationMetrics = {
             postCount: (existingData.validationMetrics?.postCount || 0) + 1,
             verifiedPostCount: (existingData.validationMetrics?.verifiedPostCount || 0) + (input.authorType === 'verified' ? 1 : 0),
-            relevantMediaCount: (existingData.validationMetrics?.relevantMediaCount || 0) + (evidenceValidation && evidenceValidation.confidenceScore > 0.7 ? 1 : 0)
+            relevantMediaCount: (existingData.validationMetrics?.relevantMediaCount || 0) // No new media validation for now
         };
 
         const newConfidence = calculateConfidence({
@@ -123,7 +161,7 @@ export async function processIncidentReport(input: IncidentInput) {
 
         // Update fields
         const updateData: any = {
-            posts: admin.firestore.FieldValue.arrayUnion(input.text),
+            posts: admin.firestore.FieldValue.arrayUnion({ text: input.text, url: input.postUrl }),
             validationMetrics: newMetrics,
             confidence: Math.round(newConfidence * 100),
             timestamp: timestamp // bump activity
@@ -142,8 +180,8 @@ export async function processIncidentReport(input: IncidentInput) {
         console.log(`[IncidentService] Creating NEW Incident`);
 
         // Strict Location Check & Geocoding
-        // We call getCoordinates again with the location name (or text) to ensure we have valid coords
-        const locResult = await getCoordinates(locationName || input.text);
+        // Optimization: Use previous result if available, otherwise call once
+        const locResult = extractedLocResult || await getCoordinates(locationName || input.text);
 
         if (!locResult.location || locResult.location === 'Unknown Location' || !locResult.coordinates) {
             console.log('[IncidentService] Could not extract specific location/coordinates. Skipping (Strict Mode).');
@@ -156,7 +194,7 @@ export async function processIncidentReport(input: IncidentInput) {
         const metrics: ValidationMetrics = {
             postCount: 1,
             verifiedPostCount: input.authorType === 'verified' ? 1 : 0,
-            relevantMediaCount: evidenceValidation && evidenceValidation.confidenceScore > 0.7 ? 1 : 0
+            relevantMediaCount: 0 // No media validation for now
         };
 
         const confidence = calculateConfidence({
@@ -177,13 +215,13 @@ export async function processIncidentReport(input: IncidentInput) {
             id: `INC-${Date.now()}`, // temp ID
             type: type,
             severity: severity,
-            location: locationName,
+            location: locationName || 'Unknown Location',
             coordinates: locResult.coordinates, // Guaranteed by check above
             timestamp: timestamp,
             confidence: Math.round(confidence * 100),
             status: 'new',
             summary: summaryResult.summary,
-            posts: [input.text],
+            posts: [{ text: input.text, url: input.postUrl }],
             validationMetrics: metrics,
             relatedPostUris: input.postUri ? [input.postUri] : [],
             url: input.postUrl

@@ -12,7 +12,8 @@ export const extractLocationFromText = async ({ text }: { text: string }): Promi
   try {
     const response = await ai.generate({
       prompt: `Extract the specific location from this incident report.
-        
+        Assume the incident is in or near Sonipat, Haryana, India or Delhi NCR unless otherwise specified.
+
         Text: "${text}"
         
         Output JSON only:
@@ -23,7 +24,8 @@ export const extractLocationFromText = async ({ text }: { text: string }): Promi
         
         IMPORTANT:
         1. Try to be as specific as possible (Street > Area > City).
-        2. ESTIMATE valid GPS coordinates for the most specific location found (e.g., if it says "Connaught Place", return CP coordinates).`,
+        2. Landmark Example: If it says "Ashoka University Main Gate", return coordinates for that specific gate area.
+        3. Assume local context: If no city is mentioned, look for landmarks in Sonipat or Delhi NCR.`,
       output: {
         format: 'json',
         schema: z.object({
@@ -44,8 +46,11 @@ export const extractLocationFromText = async ({ text }: { text: string }): Promi
 
   } catch (error) {
     console.error('[Gemini] Location extraction failed:', error);
-    // Fallback
-    return { locationReferences: ['Unknown Location'], coordinates: { lat: 28.6139, lng: 77.2090 } };
+    // Fallback coordinates for Sonipat Area (near Ashoka University)
+    return {
+      locationReferences: ['Sonipat Area (Fallback)'],
+      coordinates: { lat: 28.9482, lng: 77.1026 }
+    };
   }
 };
 

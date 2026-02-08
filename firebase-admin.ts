@@ -13,10 +13,11 @@ if (hasCredentials) {
       credential: admin.credential.applicationDefault(),
       projectId: 'studio-5035044861-42bc5' // Explicitly set project ID
     });
+    db = admin.firestore();
+    db.settings({ ignoreUndefinedProperties: true });
+  } else {
+    db = admin.firestore();
   }
-  // Try connecting to default database. If it fails, user might need to create it.
-  db = admin.firestore();
-  db.settings({ ignoreUndefinedProperties: true });
 } else {
 
   console.warn('⚠️  NO FIREBASE CREDENTIALS FOUND. USING LOCAL FILE DB (data/incidents.json).');
