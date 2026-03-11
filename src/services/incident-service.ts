@@ -4,7 +4,6 @@ import { db } from '../../firebase-admin';
 import { Incident, ValidationMetrics } from '../lib/types';
 import { calculateConfidence } from '../lib/calculate-confidence';
 import { getCoordinates } from '../ai/flows/extract-location-from-text';
-import { checkSimilarity } from '../ai/flows/check-similarity';
 import { generateEmergencyTicketSummary } from '../ai/flows/generate-emergency-ticket-summary';
 import { calculateDistance } from '../lib/geo-utils';
 
@@ -125,19 +124,10 @@ export async function processIncidentReport(input: IncidentInput) {
             );
 
             if (distance <= 200) {
-                console.log(`[IncidentService] Proximity match! (${Math.round(distance)}m). Checking AI similarity...`);
-
-                // Call AI to see if they are the SAME specific event
-                const isSimilar = await checkSimilarity(input.text, data.summary);
-
-                if (isSimilar) {
-                    console.log(`[IncidentService] Semantic match confirmed. Merging into incident ${doc.id}.`);
-                    existingDoc = doc;
-                    existingData = data;
-                    break;
-                } else {
-                    console.log(`[IncidentService] Semantic check failed. Reports are different despite proximity.`);
-                }
+                console.log(`[IncidentService] Proximity match! (${Math.round(distance)}m). Automatically merging as requested.`);
+                existingDoc = doc;
+                existingData = data;
+                break;
             }
         }
     }

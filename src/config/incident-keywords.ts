@@ -2,17 +2,17 @@
 // List of keywords to poll from Bluesky for crowdsourced incident detection
 // Add more keywords here as needed
 
-export const KEYWORD_MATCH_THRESHOLD = 2; // Post must match at least this many keywords to be processed
+export const KEYWORD_MATCH_THRESHOLD = 1; // Post must match at least this many keywords to be processed
 
 export const EXCLUDED_KEYWORDS = [
     'game', 'movie', 'song', 'lyrics', 'deal', 'sale', 'metaphor', 'like fire', 'on fire'
 ];
 
-export const REQUIRED_KEYWORDS = ['Ashoka'];
+export const REQUIRED_KEYWORDS: string[] = [];
 
 export const INCIDENT_KEYWORDS = [
     // --- ROAD & INFRASTRUCTURE DAMAGE ---
-    'pothole', 'potholes', 'road broken', 'broken road', 'damaged road', 'road damage',
+    'pothole', 'potholes', 'road broken', 'broken road', 'damaged road', 'road damage', 'pot hole', 'pot holes',
     'road collapse', 'road caved in', 'road sunk', 'uneven road', 'bad road', 'road hazard',
     'huge pit', 'big hole on road', 'crater on road', 'road washed out', 'road condition bad',
     'road not repaired', 'road under construction dangerous', 'road repair pending',
@@ -37,7 +37,7 @@ export const INCIDENT_KEYWORDS = [
     'serious danger', 'major hazard', 'public danger', 'safety issue', 'safety risk',
     'emergency', 'urgent', 'immediate action needed', 'critical condition', 'very risky',
     'extremely dangerous', 'please fix', 'complaint',
-    'reported earlier', 'still not fixed', 'no action taken', 'authorities please',
+    'reported earlier', 'still not fixed', 'no action taken', 'authorfities please',
     'govt please notice', 'concerned authorities', 'urgent attention needed',
     'ignored issue', 'same problem again', 'wake up authorities', 'who is responsible',
     'public safety risk', 'threat to life', 'hazardous',
@@ -53,7 +53,7 @@ export const INCIDENT_KEYWORDS = [
     'lane closed', 'unsafe diversion', 'temporary road dangerous', 'barricade missing',
     'traffic mismanagement', 'road sign missing', 'reflector missing', 'speed breaker damaged',
     'speed breaker missing', 'unmarked speed breaker', 'dangerous curve', 'traffic chaos',
-    'stuck in traffic', 'traffic jam', 'gridlock',
+    'stuck in traffic', 'traffic jam', 'gridlock', 'damage on road', 'road damage', 'road unsafe',
 
     // --- WATERLOGGING & FLOODING ---
     'waterlogged road', 'waterlogging', 'flooded street', 'flooded road', 'rainwater accumulation',

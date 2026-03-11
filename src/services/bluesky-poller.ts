@@ -61,16 +61,17 @@ export function startBlueskyPoller() {
 
             let posts = await blueskyClient.searchPosts(query);
 
-            // OPTIMIZATION: Also fetch latest posts from specific test user to bypass search index latency
+            // OPTIMIZATION: Also fetch latest posts from specific accounts to bypass search index latency
             try {
-                // TODO: Make this list configurable or dynamic
-                const authorPosts = await blueskyClient.getAuthorPosts('kanav06.bsky.social');
-                if (authorPosts.length > 0) {
-                    const existingUris = new Set(posts.map(p => p.uri));
-                    const newPosts = authorPosts.filter(p => !existingUris.has(p.uri));
-                    if (newPosts.length > 0) {
-                        // console.log(`[BlueskyPoller] Added ${newPosts.length} posts from author feed.`);
-                        posts = [...posts, ...newPosts];
+                const monitoredAuthors = ['kanav06.bsky.social', 'kamen6542.bsky.social', 'yadavpalak001.bsky.social'];
+                for (const handle of monitoredAuthors) {
+                    const authorPosts = await blueskyClient.getAuthorPosts(handle);
+                    if (authorPosts.length > 0) {
+                        const existingUris = new Set(posts.map(p => p.uri));
+                        const newPosts = authorPosts.filter(p => !existingUris.has(p.uri));
+                        if (newPosts.length > 0) {
+                            posts = [...posts, ...newPosts];
+                        }
                     }
                 }
             } catch (err) {
@@ -128,9 +129,6 @@ export function startBlueskyPoller() {
                     }
                 } catch (error) {
                     console.error(`[BlueskyPoller] CRITICAL: Failed to process post ${postUrl}:`, error instanceof Error ? error.message : error);
-                    console.log('[BlueskyPoller] Continuing to next post despite error in 5s...');
-                    // Still wait a bit so we don't spam errors
-                    await new Promise(resolve => setTimeout(resolve, 5000));
                 }
             }
 

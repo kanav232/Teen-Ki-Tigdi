@@ -8,7 +8,6 @@ async function runDebug() {
 
     const queries = [
         'pothole', // Simple keyword
-        'Ashoka',  // Required keyword
         'pothole Ashoka', // AND combination
         '"huge pothole"', // Exact phrase from post
         'from:kanav06.bsky.social', // Targeted author search
