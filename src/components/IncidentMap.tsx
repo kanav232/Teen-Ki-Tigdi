@@ -55,8 +55,8 @@ export default function IncidentMap({ incidents, selectedIncident }: IncidentMap
     >
       <MapController selectedIncident={selectedIncident} />
       <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        attribution='&copy; Google Maps'
+        url="http://mt0.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"
       />
       {incidents.map((incident) => (
         incident.coordinates && (
@@ -69,7 +69,7 @@ export default function IncidentMap({ incidents, selectedIncident }: IncidentMap
               <div className="p-1 min-w-[200px]">
                 <h3 className="font-bold text-sm mb-1">{incident.type}</h3>
                 <p className="text-xs text-gray-600 mb-2">{incident.location}</p>
-                <p className="text-xs mb-2 line-clamp-3">{incident.summary}</p>
+                <div className="text-xs mb-2 max-h-[150px] overflow-y-auto pr-1 whitespace-pre-wrap">{incident.summary}</div>
                 <div className="flex justify-between items-center border-t pt-2 mt-1">
                   <span className="text-xs font-semibold">Confidence: {incident.confidence}%</span>
                 </div>

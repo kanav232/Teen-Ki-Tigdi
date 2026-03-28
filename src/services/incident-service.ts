@@ -59,30 +59,9 @@ export async function processIncidentReport(input: IncidentInput) {
     let extractedLocResult: any = null;
 
     if (!locationName) {
-        // OPTIMIZATION: Check if text contains any "Known" active location names to skip LLM
-        const activeIncidentsSnapshot = await db.collection('incidents')
-            .where('status', 'in', ['new', 'acknowledged', 'in-progress'])
-            .get();
-
-        for (const doc of activeIncidentsSnapshot.docs) {
-            const data = doc.data() as Incident;
-            if (data.location && input.text.toLowerCase().includes(data.location.toLowerCase())) {
-                console.log(`[IncidentService] Fast-match found for known location: "${data.location}". Skipping AI extraction.`);
-                locationName = data.location;
-                // Prepare a result object mimicking getCoordinates output
-                extractedLocResult = {
-                    location: data.location,
-                    coordinates: data.coordinates
-                };
-                break;
-            }
-        }
-
-        // If no fast-match, fall back to LLM
-        if (!locationName) {
-            extractedLocResult = await getCoordinates(input.text);
-            locationName = extractedLocResult.location;
-        }
+        // ALWAYS use the precise Geocoding API to extract exact mapped coordinates
+        extractedLocResult = await getCoordinates(input.text);
+        locationName = extractedLocResult.location;
     }
 
     if (!locationName || locationName === 'Unknown Location') {
@@ -95,13 +74,20 @@ export async function processIncidentReport(input: IncidentInput) {
 
 
     // 4.2 Aggregation Check (Geospatial + Semantic)
-    let type: Incident['type'] = 'Public Unrest';
+    let type: Incident['type'] = 'Public Alert'; // Default
     const severity: Incident['severity'] = (classification.severity as Incident['severity']) || 'moderate';
 
     const lower = input.text.toLowerCase();
-    if (lower.includes('fire')) type = 'Fire';
-    else if (lower.includes('accident') || lower.includes('crash')) type = 'Accident';
-    else if (lower.includes('traffic')) type = 'Congestion';
+    
+    // Categorize incident based on text keywords
+    if (lower.includes('fire') || lower.includes('blaze') || lower.includes('smoke')) type = 'Fire';
+    else if (lower.includes('accident') || lower.includes('crash') || lower.includes('hit and run')) type = 'Accident';
+    else if (lower.includes('traffic') || lower.includes('jam') || lower.includes('blocked')) type = 'Congestion';
+    else if (lower.includes('pothole') || lower.includes('pot hole') || lower.includes('crater') || lower.includes('road broken') || lower.includes('road caved')) type = 'Pothole';
+    else if (lower.includes('waterlog') || lower.includes('flood') || lower.includes('drain')) type = 'Waterlogging';
+    else if (lower.includes('wire') || lower.includes('pole') || lower.includes('electric') || lower.includes('transformer')) type = 'Electrical Hazard';
+    else if (lower.includes('animal') || lower.includes('dog') || lower.includes('cattle')) type = 'Animal Menace';
+    else if (lower.includes('collapse') || lower.includes('structure') || lower.includes('building')) type = 'Infrastructure Hazard';
 
     // Fetch active incidents to check proximity
     const snapshot = await db.collection('incidents')
@@ -123,8 +109,8 @@ export async function processIncidentReport(input: IncidentInput) {
                 data.coordinates.lng
             );
 
-            if (distance <= 200) {
-                console.log(`[IncidentService] Proximity match! (${Math.round(distance)}m). Automatically merging as requested.`);
+            if (distance <= 200 && data.type === type) {
+                console.log(`[IncidentService] Proximity & Type match! (${Math.round(distance)}m). Automatically merging as requested.`);
                 existingDoc = doc;
                 existingData = data;
                 break;

@@ -47,7 +47,7 @@ export default function IncidentSidebar({ incidents, onSelectIncident, selectedI
                                     <div className="text-xs text-muted-foreground mb-1">
                                         {incident.location}
                                     </div>
-                                    <div className="text-xs line-clamp-2">
+                                    <div className={`text-xs ${selectedIncidentId === incident.id ? 'whitespace-pre-wrap' : 'line-clamp-2'}`}>
                                         {incident.summary}
                                     </div>
                                     <div className="mt-2 text-[10px] text-muted-foreground flex justify-between">

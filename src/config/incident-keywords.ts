@@ -5,7 +5,9 @@
 export const KEYWORD_MATCH_THRESHOLD = 1; // Post must match at least this many keywords to be processed
 
 export const EXCLUDED_KEYWORDS = [
-    'game', 'movie', 'song', 'lyrics', 'deal', 'sale', 'metaphor', 'like fire', 'on fire'
+    'game', 'movie', 'song', 'lyrics', 'deal', 'sale', 'metaphor', 'like fire', 'on fire',
+    'trailer', 'review', 'stock market', 'crypto', 'app crashed', 'server down', 'metaphorical',
+    'software crash', 'gaming', 'esports', 'box office', 'fiction', 'novel', 'story'
 ];
 
 export const REQUIRED_KEYWORDS: string[] = [];
@@ -101,5 +103,15 @@ export const INCIDENT_KEYWORDS = [
     'building collapse', 'structural damage', 'rescue operation', 'relief camp', 'evacuation center',
     'displaced families', 'disaster response', 'emergency shelter', 'food shortage', 'water shortage',
     'power outage', 'communication failure', 'bridge collapse', 'fallen trees', 'heatwave',
-    'extreme heat', 'heatstroke', 'cold wave', 'extreme weather', 'climate disaster', 'disaster management'
+    'extreme heat', 'heatstroke', 'cold wave', 'extreme weather', 'climate disaster', 'disaster management',
+
+    // --- EXTENDED & CIVIC EMERGENCIES ---
+    'massive fire', 'caught fire', 'blaze', 'fire tender required', 'transformer blast',
+    'live wire snapped', 'sparking pole', 'power lines down', 'electrocution',
+    'sewage overflow', 'burst pipe', 'water pipe leak', 'drain blocked', 'stink from drain',
+    'sinkhole', 'massive crater', 'tar peeling',
+    'hit and run', 'fatal crash', 'pile up on highway', 'multi-vehicle crash',
+    'building collapsing', 'wall collapsed', 'scaffolding fell', 'roof caved in',
+    'stray dog attack', 'stray animal menace', 'cattle on highway', 'cattle on road',
+    'garbage dump burning', 'toxic fumes', 'gas leak smell', 'chemical spill'
 ];

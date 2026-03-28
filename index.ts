@@ -21,6 +21,16 @@ app.use('/api/incidents', incidentRouter);
 app.use('/api/auth', authRouter);
 app.use('/api/ingest', ingestRouter);
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+});
+
+server.on('error', (e: any) => {
+  if (e.code === 'EADDRINUSE') {
+    console.error(`\n🚨 CRITICAL ERROR: PORT ${PORT} IS ALREADY IN USE! 🚨`);
+    console.error(`You have another hidden VSCode terminal tab running this exact server in the background! Please close it or click the Trash Can on your other terminal tabs! Shutting down to prevent database duplication...`);
+    process.exit(1);
+  } else {
+    console.error('Server error:', e);
+  }
 });

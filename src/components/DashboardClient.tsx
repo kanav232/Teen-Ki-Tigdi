@@ -15,11 +15,11 @@ export default function DashboardClient({ incidents }: DashboardClientProps) {
     const router = useRouter();
     const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
 
-    // Poll for updates every 15 seconds (reduced from 4s to avoid flooding)
+    // Fast-polling to ensure the frontend updates live
     useEffect(() => {
         const interval = setInterval(() => {
             router.refresh(); // Re-runs the server component fetch
-        }, 15000);
+        }, 3000); // 3 seconds for near time updates
         return () => clearInterval(interval);
     }, [router]);
 
