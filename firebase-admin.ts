@@ -9,8 +9,21 @@ let db: any;
 
 if (hasCredentials) {
   if (!admin.apps.length) {
+    let credential;
+    if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+      try {
+        const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+        credential = admin.credential.cert(serviceAccount);
+      } catch (err) {
+        console.error('[FirebaseAdmin] Failed to parse FIREBASE_SERVICE_ACCOUNT JSON:', err);
+        credential = admin.credential.applicationDefault();
+      }
+    } else {
+      credential = admin.credential.applicationDefault();
+    }
+
     admin.initializeApp({
-      credential: admin.credential.applicationDefault(),
+      credential,
       projectId: 'studio-5035044861-42bc5' // Explicitly set project ID
     });
     db = admin.firestore();
